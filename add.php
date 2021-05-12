@@ -16,7 +16,7 @@ if(!$find1){
 $find2 = mysqli_num_rows($find1);
 if ($find2 == 0){
     echo "正在添加账号信息到自动签到列表中。。。。。。<br>";
-    if ($name == null){
+    if (!$name OR $name == NULL){
         die("<script>alert('回去给个名字用于备注吧');location='index.html'</script>");
     }
     $add = "INSERT INTO list(name,tel,password) values ('$name','$account','$password')";
@@ -27,6 +27,11 @@ if ($find2 == 0){
         die("<script>alert('".$name."，你的账号".$account."已成功添加账号到签到列表，请返回手动执行登录');location='login.html'</script>");
     }
 }else{
+    if (!$name OR $name == NULL){
+        $find3 = mysqli_fetch_assoc($find1);
+        $name = $find3['name'];
+    }
+    // echo $find1['name'];
     die("<script>alert('".$name."，你的账号".$account."已经在签到列表了，正在跳转到手动执行自动签到页面');location='login.html'</script>");
 }
 
