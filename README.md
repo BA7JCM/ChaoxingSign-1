@@ -27,10 +27,13 @@ PHP 版超星学习用自动签到，支持多用户签到，二次开发便捷�
 
 <details open>
   <summary>2021/05/12</summary>
-  - 修改了`add.php`中重复添加数据库中已有的账号且备注为空时获取备注的方式
-  - 注释掉了`auto.php`中原有的`get`传值调用原作者脚本的方式，改为了`post`方式传值
-  </details>
 
+-  修改了`add.php`中重复添加数据库中已有的账号且备注为空时获取备注的方式
+- 注释掉了`auto.php`中原有的`get`传值调用原作者脚本的方式，改为了`post`方式传值
+
+<br>
+
+</details>
 <details open>
   <summary>2021/05/9</summary>
 
