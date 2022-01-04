@@ -11,6 +11,11 @@ $tryLogin = 0;//尝试登录次数
 //    die("仅能在 每天 早上8点到晚上22点之间 签到。如果你要修改，请修改 10 行代码".PHP_EOL);
 //}
 
+$enable_time = ['08:00:00', '21:00:00'];
+if(!timeInterval(time(), $enable_time)){
+    die("仅能在 每天 $enable_time[0] - $enable_time[1] 间 签到。".PHP_EOL);
+}
+
 if (is_cli() && isset($argv)) {
     $param = getopt('A:P:');
     if(!isset($param['A']) || !isset($param['P'])){
@@ -180,8 +185,28 @@ if(strpos($msgTmp,'签到成功') !== false || strpos($msgTmp,'签到失败') !=
             }
         }
     }else{
-        echo "未配置 Server酱，不推送消息".PHP_EOL;
+         echo "未配置 Server酱，不推送消息".PHP_EOL;
+     }
+
+ //Telegram 推送
+    //先检查是否开启推送 以及 是否配置了“Telegram BOT”相关信息
+    if(TG_STATE && isset($config['Telegram'][strval($account)])){
+        if($config['Telegram'][$account]['state']){
+            $req = tg_send(
+                $config['Telegram'][$account]['TG_CHAT_ID'],
+                $msgTmp = "超星自动签到成功\n\n" . $msgTmp ,
+                $config['Telegram'][$account]['TG_BOT_TOKEN']
+            );
+            if($req['ok'] == true){
+                echo "Telegram 消息推送成功".PHP_EOL;
+            }else{
+                echo "Telegram 消息推送失败。".PHP_EOL;
+            }
+        }
+    }else{
+        echo "未配置 Telegram BOT，不推送消息".PHP_EOL;
     }
+
 }else{
     echo "没有待签到的任务".PHP_EOL;
 }
