@@ -2,7 +2,9 @@
 include_once __DIR__ . "/lib/Functions.php";
 include_once __DIR__ . "/lib/Selector.php";
 include_once __DIR__ . "/Config.php";
-
+// 引入连接数据库和定义通知函数的相关文件
+include_once "./lib/notice_functions.php";
+include_once "./connect.php";
 $tryLogin = 0;//尝试登录次数
 
 //第二个传入区间，是一个数组
@@ -15,6 +17,8 @@ $enable_time = ['08:00:00', '21:00:00'];
 if(!timeInterval(time(), $enable_time)){
     die("仅能在 每天 $enable_time[0] - $enable_time[1] 间 签到。".PHP_EOL);
 }
+
+
 
 if (is_cli() && isset($argv)) {
     $param = getopt('A:P:');
@@ -29,6 +33,10 @@ if (is_cli() && isset($argv)) {
     $account = $_REQUEST['account'];
     $password = $_REQUEST['password'];
 }
+    // 更新最后一次执行签到的时间
+    $time = time();
+    $update_sql = "UPDATE list set last_single = '$time' where tel = '$account'";
+    $update_query = mysqli_query($connect,$update_sql);
 
 $jar_path = __DIR__ . "/cookie/{$account}.cookie";//保存 Cookie 的路径
 $signed_path = __DIR__ . "/cookie/{$account}.signed";//保存 已经签到完成 的路径
@@ -188,7 +196,8 @@ if(strpos($msgTmp,'签到成功') !== false || strpos($msgTmp,'签到失败') !=
          echo "未配置 Server酱，不推送消息".PHP_EOL;
      }
 
- //Telegram 推送
+     
+    //Telegram 推送
     //先检查是否开启推送 以及 是否配置了“Telegram BOT”相关信息
     if(TG_STATE && isset($config['Telegram'][strval($account)])){
         if($config['Telegram'][$account]['state']){
@@ -206,7 +215,36 @@ if(strpos($msgTmp,'签到成功') !== false || strpos($msgTmp,'签到失败') !=
     }else{
         echo "未配置 Telegram BOT，不推送消息".PHP_EOL;
     }
-
+    // 从数据库中获取一对一推送信息
+    $notice_info_sql = "SELECT * FROM list where tel = '$account'";
+    $notice_info_query = mysqli_query($connect,$notice_info_sql);
+    $notice_info_array = mysqli_fetch_array($notice_info_query);
+    // 统一标题和内容
+    $title = "签到结果推送";
+    $content = "尝试签到完成，$msgTmp";
+    // wxpusher推送
+    if($notice_info_array["push_id"] != null or $notice_info_array["push_id"] != ""){
+        // var_dump($content);
+        $wxpusher_send = wxpusher_send_notice($title,str_replace("\n", " ", $content),$notice_info_array["push_id"]);
+        if (strpos($wxpusher_send, "成功")) {
+            echo "<hr>尝试发送通知成功";
+        } else {
+            echo "发送通知可能出错：" . $wxpusher_send;
+        }
+        var_dump($wxpusher_send);
+    }
+    // 邮件推送
+    $send_email = graph_send_email($title, $content, $notice_info_array["email"]);
+        if (!isset($send_email) or $send_email != "success") {
+            echo "<hr>发送邮件可能出错：";
+            var_dump($send_email);
+        } else {
+            echo "<hr>尝试发送邮件成功";
+        }
+    // 更新最后一次成功签到的时间
+    $update_time_sql = "UPDATE list set last_success = '$time' where tel = '$account'";
+    $update_time_query = mysqli_query($connect,$update_time_sql);
+    
 }else{
     echo "没有待签到的任务".PHP_EOL;
 }

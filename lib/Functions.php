@@ -59,6 +59,25 @@ function sc_send($text = '', $desp = '', $key = '')
 }
 
 /**
+ * Telegram 推送
+ */
+function tg_send($chatID, $message, $token)
+{
+    $url = "https://api.telegram.org/bot" . $token . "/sendMessage?chat_id=" . $chatID;
+    $url = $url . "&text=" . urlencode($message);
+    $ch = curl_init();
+    $optArray = array(
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true
+    );
+    curl_setopt_array($ch, $optArray);
+    $result = curl_exec($ch);
+    curl_close($ch);
+    $result = json_decode($result, true);
+    return $result;
+}
+
+/**
  * 判断是否为命令行模式
  * @return bool
  */
@@ -125,7 +144,7 @@ function curl_get($url, $cookie_jar = '')
     curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, FALSE);
     curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, FALSE);
 
-    curl_setopt($curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4121.0 Safari/537.36 Edg/84.0.495.2");
+    curl_setopt($curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4121.0 Safari/537.36 Edge/84.0.495.2");
     curl_setopt($curl, CURLOPT_TIMEOUT, 10);
 
     if (!empty($cookie_jar)) {

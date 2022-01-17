@@ -1,0 +1,22 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+
+/cookie/
+./idea/
+*.cookie
+*/.idea/*
+*.tar.gz
+.htaccess
+.idea/ChaoxingSign.iml
+.idea/misc.xml
+.idea/modules.xml
+.idea/vcs.xml
+.user.ini
+404.html
+connect.php
