@@ -1,21 +1,17 @@
 <?PHP
 require 'connect.php';
-require_once "./lib/notice_functions.php";
+require_once "lib/notice_functions.php";
 $sql = "SELECT * FROM list where status = 1";
 $list = mysqli_query($connect,$sql);
 while($run = mysqli_fetch_assoc($list)){
     $account = $run['tel'];
     $password = $run['password'];
     $name = $run['name'];
-    // $url = "https://这里换成你自己的部署地址/main.php?account=$account&password=$password";
-    // $single = file_get_contents($url);
-    $post_data = array(
-        'account' => $account,
-        'password' => $password
-    );
-    $single= send_post('https://这里换成你自己的部署地址/main.php', $post_data);
+    echo "<br>".$name.":".PHP_EOL."<br>";
+    $post_data = "account=".$account."&password=".$password;
+    $single= send_post('https://'.$_SERVER["HTTP_HOST"].'/main.php', $post_data);
     if($single){
-        echo $single;
+        echo "<pre>$single</pre>";
 	    echo PHP_EOL;
         echo "<br>尝试为".$name."签到完成".PHP_EOL."<br><hr>";
     }else{

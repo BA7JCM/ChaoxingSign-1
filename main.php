@@ -1,4 +1,5 @@
 <?php
+error_reporting(1);
 include_once __DIR__ . "/lib/Functions.php";
 include_once __DIR__ . "/lib/Selector.php";
 include_once __DIR__ . "/Config.php";
@@ -7,18 +8,12 @@ include_once "./lib/notice_functions.php";
 include_once "./connect.php";
 $tryLogin = 0;//尝试登录次数
 
-//第二个传入区间，是一个数组
-//['08:00:00', '23:00:00'] 表示仅能在这两个区间内进行签到
-//if(timeInterval(time(), ['08:00:00', '23:00:00'])){
-//    die("仅能在 每天 早上8点到晚上22点之间 签到。如果你要修改，请修改 10 行代码".PHP_EOL);
-//}
-
-$enable_time = ['08:00:00', '21:00:00'];
+// 允许签到的时间范围
+// ['08:00:00', '23:00:00'] 表示仅能在这两个区间内进行签到, 时间使用24小时制
+$enable_time = ['08:00:00', '23:00:00'];
 if(!timeInterval(time(), $enable_time)){
-    die("仅能在 每天 $enable_time[0] - $enable_time[1] 间 签到。".PHP_EOL);
+    die("仅能在 每天 $enable_time[0] - $enable_time[1] 间 签到。如果你要修改，请修改第 10 行代码".PHP_EOL);
 }
-
-
 
 if (is_cli() && isset($argv)) {
     $param = getopt('A:P:');
@@ -67,6 +62,7 @@ if(!isset($getCourseListRes['channelList'])){
         goto takeLogin;//执行登录，更新 cookie
     }
 }
+// echo "<pre>";var_dump($getCourseListRes['channelList'], true);echo "</pre>";die;
 
 $course_list = [];
 foreach ($getCourseListRes['channelList'] as $v){
@@ -84,6 +80,7 @@ foreach ($getCourseListRes['channelList'] as $v){
         }
     }
     */
+    // echo "<pre>";var_dump($v, true);echo "</pre>";die;
 
     if(!isset($v['content']['course']['data'][0]['id'])) continue;
 
@@ -101,31 +98,37 @@ goto getTaskID;//获取任务 ID
 
 //获取任务ID
 getTaskID:
+// echo "<pre>";var_dump($course_list, true);echo "</pre>";die;
 $taskID = [];
 foreach ($course_list as $val) {
     $html = curl_get(sprintf(TASK_ID, $val['courseId'], $val['classId']), $jar_path);
-    $res = selector::select($html, '#startList div', 'css');
-
-    if (isset($res[0])) {
-        if (!is_array($res)) continue;
-        foreach ($res as $k => $v) {
-            $d = selector::select($v, '@activeDetail(.*?)"@', 'regex');
-            $d = str_replace(['(', ')', ''], '', $d);
-            $d = explode(",", $d);
-
-            if(isset($d[1])){
-                if (intval($d[1]) === 2) {
-                    $taskID[] = [
-                        $val['courseId'],//课程ID
-                        $val['classId'],//班级ID
-                        $d[0],//签到任务ID
-                        $val['title'],//课程名
-                        $val['teacherName'],//教师名
-                    ];
-                }
-            }
+// echo "<pre>";var_dump(json_decode($html, true)["activeList"]);echo "</pre>";die;
+$res = json_decode($html, true)["activeList"];
+    // 由于同一时间同一门课不会出现多个签到，优化遍历代码
+// echo "<pre>";var_dump($res[0]);echo "</pre>";die;
+    for ($i = 0; $i <= 3; $i ++){
+        if($res[$i]["status"] == 1 && $res[$i]["activeType"] ==2){
+            $taskID[] = [
+                $val['courseId'],//课程ID
+                $val['classId'],//班级ID
+                $res[$i]["id"],//签到任务ID
+                $val['title'],//课程名
+                $val['teacherName'],//教师名
+                ];
         }
     }
+    // 数组全部遍历
+    // foreach ($res as $k => $v) {
+    //     if($v["status"] == 1){
+    //          $taskID[] = [
+    //             $val['courseId'],//课程ID
+    //             $val['classId'],//班级ID
+    //             $v["id"],//签到任务ID
+    //             $val['title'],//课程名
+    //             $val['teacherName'],//教师名
+    //             ];
+    //     }
+    // }
 }
 
 if (count($taskID) > 0) {
@@ -193,10 +196,9 @@ if(strpos($msgTmp,'签到成功') !== false || strpos($msgTmp,'签到失败') !=
             }
         }
     }else{
-         echo "未配置 Server酱，不推送消息".PHP_EOL;
-     }
+        echo "未配置 Server酱，不推送消息".PHP_EOL;
+    }
 
-     
     //Telegram 推送
     //先检查是否开启推送 以及 是否配置了“Telegram BOT”相关信息
     if(TG_STATE && isset($config['Telegram'][strval($account)])){
@@ -215,36 +217,54 @@ if(strpos($msgTmp,'签到成功') !== false || strpos($msgTmp,'签到失败') !=
     }else{
         echo "未配置 Telegram BOT，不推送消息".PHP_EOL;
     }
-    // 从数据库中获取一对一推送信息
-    $notice_info_sql = "SELECT * FROM list where tel = '$account'";
-    $notice_info_query = mysqli_query($connect,$notice_info_sql);
-    $notice_info_array = mysqli_fetch_array($notice_info_query);
-    // 统一标题和内容
-    $title = "签到结果推送";
-    $content = "尝试签到完成，$msgTmp";
-    // wxpusher推送
-    if($notice_info_array["push_id"] != null or $notice_info_array["push_id"] != ""){
-        // var_dump($content);
-        $wxpusher_send = wxpusher_send_notice($title,str_replace("\n", " ", $content),$notice_info_array["push_id"]);
-        if (strpos($wxpusher_send, "成功")) {
-            echo "<hr>尝试发送通知成功";
-        } else {
-            echo "发送通知可能出错：" . $wxpusher_send;
-        }
-        var_dump($wxpusher_send);
+// 从数据库中获取一对一推送信息
+$notice_info_sql = "SELECT * FROM list where tel = '$account'";
+$notice_info_query = mysqli_query($connect,$notice_info_sql);
+$notice_info_array = mysqli_fetch_array($notice_info_query);
+// 统一标题和内容
+$title = "签到结果推送";
+$content = "尝试签到完成，$msgTmp";
+// wxpusher推送
+if($notice_info_array["push_id"] != null or $notice_info_array["push_id"] != ""){
+    // var_dump($content);
+    $wxpusher_send = wxpusher_send_notice($title,str_replace("\n", " ", $content),$notice_info_array["push_id"]);
+    if (strpos($wxpusher_send, "成功")) {
+        echo "<hr>尝试发送通知成功";
+    } else {
+        echo "发送通知可能出错：" . $wxpusher_send;
     }
-    // 邮件推送
-    $send_email = graph_send_email($title, $content, $notice_info_array["email"]);
-        if (!isset($send_email) or $send_email != "success") {
-            echo "<hr>发送邮件可能出错：";
-            var_dump($send_email);
-        } else {
-            echo "<hr>尝试发送邮件成功";
+    // var_dump($wxpusher_send);
+}
+// 邮件推送
+$send_email = graph_send_email($title, $content, $notice_info_array["email"]);
+    if (!isset($send_email) or $send_email != "success") {
+        echo "<hr>发送邮件可能出错：";
+        var_dump($send_email);
+    } else {
+        echo "<hr>尝试发送邮件成功";
+    }
+// 更新最后一次成功签到的时间
+$update_time_sql = "UPDATE list set last_success = '$time' where tel = '$account'";
+$update_time_query = mysqli_query($connect,$update_time_sql);
+
+    //BARK 推送
+    //先检查是否开启推送 以及 是否配置了“BARK”相关信息
+    if(BARK_STATE && isset($config['Bark'][strval($account)])){
+        if($config['Bark'][$account]['state']){
+            $req = bark_send(
+                "超星自动签到提醒",
+                $msgTmp = "超星自动签到成功\n\n" . $msgTmp,
+                $config['Bark'][$account]['BARK_PUSH_API']
+            );
+            if($req['code'] == 200){
+                echo "Bark 消息推送成功".PHP_EOL;
+            }else{
+                echo "Bark 消息推送失败。".PHP_EOL;
+            }
         }
-    // 更新最后一次成功签到的时间
-    $update_time_sql = "UPDATE list set last_success = '$time' where tel = '$account'";
-    $update_time_query = mysqli_query($connect,$update_time_sql);
-    
+    }else{
+        echo "未配置 Bark，不推送消息".PHP_EOL;
+    }
 }else{
     echo "没有待签到的任务".PHP_EOL;
 }

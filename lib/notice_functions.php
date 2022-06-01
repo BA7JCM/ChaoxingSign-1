@@ -13,30 +13,25 @@ function post_json($url,$data,$header ="" ){
     curl_close($curl);
     return $response;
 }
-function send_post($url, $post_data) {
-    $data = http_build_query($post_data);
-    $options = array(
-        'http' => array(
-            'method' => 'POST',
-            'header' => 'Content-type:application/x-www-form-urlencoded',
-            'content' => $data,
-            // 'timeout' => 15 * 60 // 超时时间（单位:s）
-        )
-    );
-    $context = stream_context_create($options);
-    $result = file_get_contents($url, false, $context);
- 
-    return $result;
+function send_post($url, $data)
+{
+    $curl = curl_init();
+    curl_setopt_array($curl, [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST => 'POST',
+        CURLOPT_POSTFIELDS => $data,
+        CURLOPT_HTTPHEADER => ['Content-type:application/x-www-form-urlencoded'],
+    ]);
+    $response = curl_exec($curl);
+    curl_close($curl);
+    return $response;
 }
-function graph_send_email($title,$content,$recipient,$sender = "88c925cb-ab5d-473c-907d-65fabea32ab9"){
+function graph_send_email($title,$content,$recipient,$sender){
     // 用微软api发邮件的部分太多东西了，写成函数方便后面调用
     // 现用现从微软那里拿token
-    $data = [
-        "client_id" => "这里填写你自己在Azure那边新建的应用的id",
-        "scope" => "https://graph.microsoft.com/.default",
-        "client_secret" => "这里填写你自己在Azure那边新建的应用的secret",
-        "grant_type" => "client_credentials"
-    ];
+
+    $data = "client_id=这里填写你自己在Azure那边新建的应用的id&scope=".urlencode("https://graph.microsoft.com/.default")."&client_secret=这里填写你自己在Azure那边新建的应用的secret&grant_type=client_credentials";
     $url = "https://login.microsoftonline.com/这里填写你自己office365组织的id/oauth2/v2.0/token";
     $result = send_post($url,$data);
     $token = json_decode($result,true)["access_token"];
@@ -75,7 +70,7 @@ function wxpusher_send_notice($title,$content,$recipient){
         "uids":[
             "' . $recipient . '"
         ],
-        "url":"https://这里换成你自己的部署地址/login.php"
+        "url":"https://'.$_SERVER["HTTP_HOST"].'/login.php"
       }';
         $sended = post_json("https://wxpusher.zjiecode.com/api/send/message", $send_data);
         $status = json_decode($sended, true)["data"][0]["status"];
